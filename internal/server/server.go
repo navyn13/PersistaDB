@@ -39,9 +39,10 @@ func (s *Server) Peerloop() {
 	for {
 		select {
 		case peer := <-s.addPeerCh:
+			slog.Info("New peer connected", "peer", peer.conn.RemoteAddr())
 			s.peers[peer] = true
 		case msg := <-s.msgCh:
-			slog.Info("Received message", "message", msg)
+			slog.Info("Received message", "message", msg.Msg)
 		}
 	}
 }
@@ -53,14 +54,14 @@ func (s *Server) acceptClientLoop() error {
 		if err != nil {
 			continue
 		}
-		go s.handleClientConn(conn)
+		go s.handleClientConn(conn, s.msgCh)
 	}
 }
 
-func (s *Server) handleClientConn(conn net.Conn) {
-	peer := NewPeer(conn)
+func (s *Server) handleClientConn(conn net.Conn, msgCh chan Message) {
+	peer := NewPeer(conn, msgCh)
 	s.addPeerCh <- peer
-	// write go read loop here - to read messages
+	go peer.readLoop()
 }
 
 func (s *Server) Shutdown() {

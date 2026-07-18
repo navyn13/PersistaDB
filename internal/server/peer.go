@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
+	"fmt"
 	"net"
+	"strings"
 	"sync"
 )
 
@@ -16,9 +19,24 @@ type Peer struct {
 	mu    sync.Mutex // serializes writes (pipelined msgs may run on many workers)
 }
 
-func NewPeer(conn net.Conn) *Peer {
+func NewPeer(conn net.Conn, msgCh chan Message) *Peer {
 	return &Peer{
 		conn:  conn,
-		msgCh: make(chan Message),
+		msgCh: msgCh,
+	}
+}
+func (p *Peer) readLoop() error {
+	reader := bufio.NewReaderSize(p.conn, 64*1024)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("read error:", err)
+			return err
+		}
+		msg := strings.TrimRight(line, "\r\n")
+		if msg == "" {
+			continue
+		}
+		p.msgCh <- Message{Peer: p, Msg: msg}
 	}
 }
