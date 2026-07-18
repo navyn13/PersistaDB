@@ -42,7 +42,7 @@ func (s *Server) Peerloop() {
 			slog.Info("New peer connected", "peer", peer.conn.RemoteAddr())
 			s.peers[peer] = true
 		case msg := <-s.msgCh:
-			slog.Info("Received message", "message", msg.Msg)
+			s.handleMessage(msg)
 		}
 	}
 }

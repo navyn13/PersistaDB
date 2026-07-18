@@ -1,4 +1,6 @@
 .bin/
+bin/
+tmp/
 .env
 .idea/
 .vscode/
