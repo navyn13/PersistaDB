@@ -32,6 +32,15 @@ func (s *Server) Start() error {
 	}
 	s.ln = ln
 	go s.Peerloop()
+	wal, err := NewWAL()
+	if err != nil {
+		slog.Error("Failed to create WAL", "error", err)
+		return err
+	}
+	if err := wal.CreateDataFile(); err != nil {
+		slog.Error("Failed to create data file", "error", err)
+		return err
+	}
 	slog.Info("PersistaDB Running", "listenAddr", s.ListenAddr)
 	return s.acceptClientLoop()
 }

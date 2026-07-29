@@ -9,8 +9,8 @@ import (
 )
 
 type Message struct {
-	Peer *Peer
-	Msg  string
+	peer *Peer
+	data string
 }
 
 type Peer struct {
@@ -37,6 +37,11 @@ func (p *Peer) readLoop() error {
 		if msg == "" {
 			continue
 		}
-		p.msgCh <- Message{Peer: p, Msg: msg}
+		p.msgCh <- Message{peer: p, data: msg}
 	}
+}
+func (p *Peer) Send(msg []byte) (int, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.conn.Write(msg)
 }
