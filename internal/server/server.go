@@ -25,18 +25,26 @@ func NewServer(cfg *config.Config) *Server {
 }
 
 func (s *Server) Start() error {
+
+	//listen for incoming connections
 	ln, err := net.Listen("tcp", s.ListenAddr)
 	if err != nil {
 		slog.Error("Failed to listen", "error", err)
 		return nil
 	}
+
+	//start peer loop
 	s.ln = ln
 	go s.Peerloop()
+
+	//create WAL and data file
 	wal, err := NewWAL()
 	if err != nil {
 		slog.Error("Failed to create WAL", "error", err)
 		return err
 	}
+
+	//create data file
 	if err := wal.CreateDataFile(); err != nil {
 		slog.Error("Failed to create data file", "error", err)
 		return err
