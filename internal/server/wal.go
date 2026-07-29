@@ -11,18 +11,18 @@ type WAL struct {
 	nextID     int
 }
 
-func NewWAL() (*WAL, error) {
+func NewWAL() *WAL {
 	w := &WAL{}
 
 	// Ensure data directory exists
 	if err := os.MkdirAll("data", 0755); err != nil {
-		return nil, err
+		return nil
 	}
 
 	// Find next available segment number
 	files, err := filepath.Glob(filepath.Join("data", "*.data"))
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
 	maxID := 0
@@ -40,7 +40,7 @@ func NewWAL() (*WAL, error) {
 
 	w.nextID = maxID + 1
 
-	return w, nil
+	return w
 }
 
 // CreateDataFile creates the next sequential .data file.
@@ -61,5 +61,15 @@ func (w *WAL) CreateDataFile() error {
 	w.activeFile = file
 	w.nextID++
 
+	return nil
+}
+func (w *WAL) Write(data []byte) error {
+	if w.activeFile == nil {
+		return fmt.Errorf("no active file")
+	}
+	_, err := w.activeFile.Write(append(data, '\n'))
+	if err != nil {
+		return err
+	}
 	return nil
 }

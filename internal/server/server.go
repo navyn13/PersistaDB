@@ -13,6 +13,7 @@ type Server struct {
 	addPeerCh chan *Peer
 	msgCh     chan Message
 	peers     map[*Peer]bool
+	wal       *WAL
 }
 
 func NewServer(cfg *config.Config) *Server {
@@ -21,6 +22,7 @@ func NewServer(cfg *config.Config) *Server {
 		addPeerCh: make(chan *Peer),
 		msgCh:     make(chan Message),
 		peers:     make(map[*Peer]bool),
+		wal:       NewWAL(),
 	}
 }
 
@@ -37,15 +39,8 @@ func (s *Server) Start() error {
 	s.ln = ln
 	go s.Peerloop()
 
-	//create WAL and data file
-	wal, err := NewWAL()
-	if err != nil {
-		slog.Error("Failed to create WAL", "error", err)
-		return err
-	}
-
 	//create data file
-	if err := wal.CreateDataFile(); err != nil {
+	if err := s.wal.CreateDataFile(); err != nil {
 		slog.Error("Failed to create data file", "error", err)
 		return err
 	}
