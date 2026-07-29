@@ -63,11 +63,11 @@ func (w *WAL) CreateDataFile() error {
 
 	return nil
 }
-func (w *WAL) Write(data []byte) error {
+func (w *WAL) Write(data string) error {
 	if w.activeFile == nil {
 		return fmt.Errorf("no active file")
 	}
-	_, err := w.activeFile.Write(append(data, '\n'))
+	_, err := w.activeFile.WriteString(data + "\n")
 	if err != nil {
 		return err
 	}

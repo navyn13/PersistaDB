@@ -10,7 +10,7 @@ func (s *Server) handleMessage(msg Message) error {
 
 	switch parts[0] {
 	case "set":
-		err := s.wal.Write([]byte(msg.data))
+		err := s.wal.Write(msg.data)
 		if err != nil {
 			msg.peer.Send([]byte("ERROR WRITING TO WAL\r\n"))
 			return err
