@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
 )
 
 type WAL struct {
@@ -73,3 +74,4 @@ func (w *WAL) Write(data string) error {
 	}
 	return nil
 }
+

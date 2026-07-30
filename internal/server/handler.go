@@ -14,7 +14,7 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID SET COMMAND\r\n"))
 			return nil
 		}
-		err := s.wal.Write(msg.data)
+		err := s.wal.Write(EncodeRecord(msg.data))
 		if err != nil {
 			msg.peer.Send([]byte("ERROR WRITING TO WAL\r\n"))
 			return err
