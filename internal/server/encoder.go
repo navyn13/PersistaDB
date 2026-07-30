@@ -17,6 +17,11 @@ type DeleteRecordEncoder struct {
 	key string
 }
 
+func CRCString(data string) string {
+	crc := crc32.ChecksumIEEE([]byte(data))
+	return fmt.Sprintf("%08x", crc) // hex string
+}
+
 func (e *SetRecordEncoder) Encode() string {
 	crc := CRCString(e.key + e.value)
 	timestamp := time.Now().UnixNano()
@@ -47,8 +52,4 @@ func (e *DeleteRecordEncoder) Encode() string {
 		e.key,
 		value,
 	)
-}
-func CRCString(data string) string {
-	crc := crc32.ChecksumIEEE([]byte(data))
-	return fmt.Sprintf("%08x", crc) // hex string
 }
