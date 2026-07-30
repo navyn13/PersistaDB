@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
+	"sync"
 )
 
 type WAL struct {
 	activeFile *os.File
 	nextID     int
+	mu         sync.Mutex
 }
 
 func NewWAL() *WAL {
@@ -65,6 +66,8 @@ func (w *WAL) CreateDataFile() error {
 	return nil
 }
 func (w *WAL) Write(data string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if w.activeFile == nil {
 		return fmt.Errorf("no active file")
 	}
@@ -74,4 +77,3 @@ func (w *WAL) Write(data string) error {
 	}
 	return nil
 }
-
