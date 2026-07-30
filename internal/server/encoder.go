@@ -2,27 +2,53 @@ package server
 
 import (
 	"fmt"
-	"time"
-	"strings"
 	"hash/crc32"
+	"time"
 )
 
+type RecordEncoder interface {
+	Encode() []byte
+}
+type SetRecordEncoder struct {
+	key   string
+	value string
+}
+type DeleteRecordEncoder struct {
+	key string
+}
+
+func (e *SetRecordEncoder) Encode() string {
+	crc := CRCString(e.key + e.value)
+	timestamp := time.Now().UnixNano()
+	keyLen := len(e.key)
+	valueLen := len(e.value)
+
+	return fmt.Sprintf("[%s][%016x][%016x][%016x][%s][%s]",
+		crc,
+		timestamp,
+		keyLen,
+		valueLen,
+		e.key,
+		e.value,
+	)
+}
+func (e *DeleteRecordEncoder) Encode() string {
+	crc := CRCString(e.key)
+	timestamp := time.Now().UnixNano()
+	keyLen := len(e.key)
+	valueLen := -1
+	value := ""
+	///valaue len must be -1 for delete
+	return fmt.Sprintf("[%s][%016x][%016x][%d][%s][%s]",
+		crc,
+		timestamp,
+		keyLen,
+		valueLen,
+		e.key,
+		value,
+	)
+}
 func CRCString(data string) string {
 	crc := crc32.ChecksumIEEE([]byte(data))
 	return fmt.Sprintf("%08x", crc) // hex string
-}
-func EncodeRecord(data string)string{
-	crc := CRCString(data)
-	timestamp := time.Now().UnixNano()
-	parts := strings.SplitN(data, " ", 3)
-	key := parts[1]
-	value := strings.Join(parts[2:], " ")
-	return fmt.Sprintf("[%s][%016x][%016x][%016x][%s][%s]\n",
-    crc,
-    timestamp,
-    len(key),
-    len(value),
-    key,
-    value,
-)
 }

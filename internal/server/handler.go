@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Server) handleMessage(msg Message) error {
-	parts := strings.Split(msg.data, " ")
+	parts := strings.SplitN(msg.data, " ", 3)
 
 	switch parts[0] {
 	case "set":
@@ -14,7 +14,12 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID SET COMMAND\r\n"))
 			return nil
 		}
-		err := s.wal.Write(EncodeRecord(msg.data))
+		encoder := &SetRecordEncoder{
+			key:   parts[1],
+			value: parts[2],
+		}
+		encoded := encoder.Encode()
+		err := s.wal.Write(encoded)
 		if err != nil {
 			msg.peer.Send([]byte("ERROR WRITING TO WAL\r\n"))
 			return err
@@ -35,7 +40,11 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID DELETE COMMAND\r\n"))
 			return nil
 		}
-		err := s.wal.Write(msg.data)
+		encoder := &DeleteRecordEncoder{
+			key: parts[1],
+		}
+		encoded := encoder.Encode()
+		err := s.wal.Write(encoded)
 		if err != nil {
 			msg.peer.Send([]byte("ERROR DELETING TO WAL\r\n"))
 			return err
