@@ -9,20 +9,22 @@ import (
 
 type WAL struct {
 	activeFile *os.File
-	nextID     int
 	mu         sync.Mutex
 }
 
 func NewWAL() *WAL {
 	w := &WAL{}
-
 	// Ensure data directory exists
-	if err := os.MkdirAll("data", 0755); err != nil {
+	if err := os.MkdirAll("logs", 0755); err != nil {
 		return nil
 	}
+	return w
+}
 
+// CreateDataFile creates the next sequential .data file.
+func (w *WAL) CreateNextLogFile() error {
 	// Find next available segment number
-	files, err := filepath.Glob(filepath.Join("data", "*.data"))
+	files, err := filepath.Glob(filepath.Join("logs", "*.data"))
 	if err != nil {
 		return nil
 	}
@@ -40,15 +42,8 @@ func NewWAL() *WAL {
 		}
 	}
 
-	w.nextID = maxID + 1
-
-	return w
-}
-
-// CreateDataFile creates the next sequential .data file.
-func (w *WAL) CreateDataFile() error {
-	filename := fmt.Sprintf("%06d.data", w.nextID)
-	path := filepath.Join("data", filename)
+	filename := fmt.Sprintf("log-%06d.data", maxID+1)
+	path := filepath.Join("logs", filename)
 
 	file, err := os.Create(path)
 	if err != nil {
@@ -61,7 +56,6 @@ func (w *WAL) CreateDataFile() error {
 	}
 
 	w.activeFile = file
-	w.nextID++
 
 	return nil
 }

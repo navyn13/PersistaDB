@@ -14,6 +14,7 @@ type Server struct {
 	msgCh     chan Message
 	peers     map[*Peer]bool
 	wal       *WAL
+	disk      *Disk
 }
 
 func NewServer(cfg *config.Config) *Server {
@@ -23,6 +24,7 @@ func NewServer(cfg *config.Config) *Server {
 		msgCh:     make(chan Message),
 		peers:     make(map[*Peer]bool),
 		wal:       NewWAL(),
+		disk:      NewDisk(),
 	}
 }
 
@@ -39,9 +41,14 @@ func (s *Server) Start() error {
 	s.ln = ln
 	go s.Peerloop()
 
-	//create data file
-	if err := s.wal.CreateDataFile(); err != nil {
-		slog.Error("Failed to create data file", "error", err)
+	//create log file
+	if err := s.wal.CreateNextLogFile(); err != nil {
+		slog.Error("Failed to create next log file", "error", err)
+		return err
+	}
+	// create segment file if not exists
+	if err := s.disk.CreateSegment(); err != nil {
+		slog.Error("Failed to create segment file", "error", err)
 		return err
 	}
 	slog.Info("PersistaDB Running", "listenAddr", s.ListenAddr)
