@@ -6,28 +6,36 @@ import (
 	"sync"
 )
 
-type Disk struct {
+type SegmentGroup struct {
 	mu sync.Mutex
 }
 
-func NewDisk() *Disk {
+func NewSegmentGroup() *SegmentGroup {
 	// create segment file if not exists
 	if err := os.MkdirAll("segments", 0755); err != nil {
 		return nil
 	}
-	return &Disk{mu: sync.Mutex{}}
+	return &SegmentGroup{mu: sync.Mutex{}}
 }
 
-func (d *Disk) CreateSegment() error {
+func (s *SegmentGroup) CreateSegment() error {
 	//only create segment file if not exists
-	if _, err := os.Stat(filepath.Join("segments", "segment-000001.data")); os.IsNotExist(err) {
-		return os.WriteFile(filepath.Join("segments", "segment-000001.data"), []byte(""), 0644)
+	if _, err := os.Stat(filepath.Join("segments", "segment-000001.seg")); os.IsNotExist(err) {
+		return os.WriteFile(filepath.Join("segments", "segment-000001.seg"), []byte(""), 0644)
 	}
 	return nil
 }
 
-func (d *Disk) Write(data string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return os.WriteFile(filepath.Join("segments", "segment-000001.data"), []byte(data), 0644)
+func (s *SegmentGroup) Write(data string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	file, err := os.OpenFile(filepath.Join("segments", "segment-000001.seg"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(data + "\n")
+	if err != nil {
+		return err
+	}
+	return file.Close()
 }

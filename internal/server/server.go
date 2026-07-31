@@ -9,22 +9,22 @@ import (
 
 type Server struct {
 	config.Config
-	ln        net.Listener
-	addPeerCh chan *Peer
-	msgCh     chan Message
-	peers     map[*Peer]bool
-	wal       *WAL
-	disk      *Disk
+	ln           net.Listener
+	addPeerCh    chan *Peer
+	msgCh        chan Message
+	peers        map[*Peer]bool
+	wal          *WAL
+	segmentGroup *SegmentGroup
 }
 
 func NewServer(cfg *config.Config) *Server {
 	return &Server{
-		Config:    *cfg,
-		addPeerCh: make(chan *Peer),
-		msgCh:     make(chan Message),
-		peers:     make(map[*Peer]bool),
-		wal:       NewWAL(),
-		disk:      NewDisk(),
+		Config:       *cfg,
+		addPeerCh:    make(chan *Peer),
+		msgCh:        make(chan Message),
+		peers:        make(map[*Peer]bool),
+		wal:          NewWAL(),
+		segmentGroup: NewSegmentGroup(),
 	}
 }
 
@@ -47,7 +47,7 @@ func (s *Server) Start() error {
 		return err
 	}
 	// create segment file if not exists
-	if err := s.disk.CreateSegment(); err != nil {
+	if err := s.segmentGroup.CreateSegment(); err != nil {
 		slog.Error("Failed to create segment file", "error", err)
 		return err
 	}
