@@ -22,13 +22,13 @@ func CRCString(data string) string {
 	return fmt.Sprintf("%08x", crc) // hex string
 }
 
-func (e *SetRecordEncoder) Encode() string {
+func (e *SetRecordEncoder) Encode() []byte {
 	crc := CRCString(e.key + e.value)
 	timestamp := time.Now().UnixNano()
 	keyLen := len(e.key)
 	valueLen := len(e.value)
 
-	return fmt.Sprintf("[%s][%016x][%016x][%016x][%s][%s]",
+	record := fmt.Sprintf("%s%016x%08x%08x%s%s",
 		crc,
 		timestamp,
 		keyLen,
@@ -36,15 +36,16 @@ func (e *SetRecordEncoder) Encode() string {
 		e.key,
 		e.value,
 	)
+	return []byte(record)
 }
-func (e *DeleteRecordEncoder) Encode() string {
+func (e *DeleteRecordEncoder) Encode() []byte {
 	crc := CRCString(e.key)
 	timestamp := time.Now().UnixNano()
 	keyLen := len(e.key)
 	valueLen := -1
 	value := ""
 	///valaue len must be -1 for delete
-	return fmt.Sprintf("[%s][%016x][%016x][%d][%s][%s]",
+	record := fmt.Sprintf("[%s][%016x][%016x][%d][%s][%s]",
 		crc,
 		timestamp,
 		keyLen,
@@ -52,4 +53,5 @@ func (e *DeleteRecordEncoder) Encode() string {
 		e.key,
 		value,
 	)
+	return []byte(record)
 }

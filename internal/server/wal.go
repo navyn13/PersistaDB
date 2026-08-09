@@ -59,13 +59,13 @@ func (w *WAL) CreateNextLogFile() error {
 
 	return nil
 }
-func (w *WAL) Write(data string) error {
+func (w *WAL) Write(data []byte) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.activeFile == nil {
 		return fmt.Errorf("no active file")
 	}
-	_, err := w.activeFile.WriteString(data + "\n")
+	_, err := w.activeFile.Write(data)
 	if err != nil {
 		return err
 	}
