@@ -9,6 +9,7 @@ import (
 
 type WAL struct {
 	activeFile *os.File
+	nextFileID int
 	mu         sync.Mutex
 }
 
@@ -42,7 +43,7 @@ func (w *WAL) CreateNextLogFile() error {
 		}
 	}
 
-	filename := fmt.Sprintf("log-%06d.data", maxID+1)
+	filename := fmt.Sprintf("%06d.data", maxID+1)
 	path := filepath.Join("logs", filename)
 
 	file, err := os.Create(path)
@@ -56,6 +57,7 @@ func (w *WAL) CreateNextLogFile() error {
 	}
 
 	w.activeFile = file
+	w.nextFileID = maxID + 1
 
 	return nil
 }
