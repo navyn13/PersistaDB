@@ -9,22 +9,20 @@ import (
 
 type Server struct {
 	config.Config
-	ln           net.Listener
-	addPeerCh    chan *Peer
-	msgCh        chan Message
-	peers        map[*Peer]bool
-	wal          *WAL
-	segmentGroup *SegmentGroup
+	ln        net.Listener
+	addPeerCh chan *Peer
+	msgCh     chan Message
+	peers     map[*Peer]bool
+	wal       *WAL
 }
 
 func NewServer(cfg *config.Config) *Server {
 	return &Server{
-		Config:       *cfg,
-		addPeerCh:    make(chan *Peer),
-		msgCh:        make(chan Message),
-		peers:        make(map[*Peer]bool),
-		wal:          NewWAL(),
-		segmentGroup: NewSegmentGroup(),
+		Config:    *cfg,
+		addPeerCh: make(chan *Peer),
+		msgCh:     make(chan Message),
+		peers:     make(map[*Peer]bool),
+		wal:       NewWAL(),
 	}
 }
 
@@ -46,11 +44,7 @@ func (s *Server) Start() error {
 		slog.Error("Failed to create next log file", "error", err)
 		return err
 	}
-	// create segment file if not exists
-	if err := s.segmentGroup.CreateSegment(); err != nil {
-		slog.Error("Failed to create segment file", "error", err)
-		return err
-	}
+
 	slog.Info("PersistaDB Running", "listenAddr", s.ListenAddr)
 	return s.acceptClientLoop()
 }
