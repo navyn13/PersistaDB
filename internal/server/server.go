@@ -38,7 +38,11 @@ func (s *Server) Start() error {
 	//start peer loop
 	s.ln = ln
 	go s.Peerloop()
-
+	// read all log files before starting the server
+	if err := s.wal.BuildKeyDirMapFromLogFiles(); err != nil {
+		slog.Error("Failed to build key dir map from log files", "error", err)
+		return err
+	}
 	//create log file
 	if err := s.wal.CreateNextLogFile(); err != nil {
 		slog.Error("Failed to create next log file", "error", err)

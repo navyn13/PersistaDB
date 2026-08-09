@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,10 +13,19 @@ type WAL struct {
 	activeFile *os.File
 	nextFileID int
 	mu         sync.Mutex
+	keyDir     map[string]KeyDirEntry
+}
+
+type KeyDirEntry struct {
+	FileName  string
+	Offset    int64
+	ValueSize uint32
 }
 
 func NewWAL() *WAL {
-	w := &WAL{}
+	w := &WAL{
+		keyDir: make(map[string]KeyDirEntry),
+	}
 	// Ensure data directory exists
 	if err := os.MkdirAll("logs", 0755); err != nil {
 		return nil
@@ -71,5 +82,62 @@ func (w *WAL) Write(data []byte) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (w *WAL) BuildKeyDirMapFromLogFiles() error {
+	files, err := filepath.Glob(filepath.Join("logs", "*.data"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		fi, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		fileN := fi.Name()
+		err = w.buildKeyDirFromLogFile(fi, fileN)
+		fi.Close()
+		if err != nil {
+			return err
+		}
+	}
+	//print the whole map after reading the all the log files
+	fmt.Println(w.keyDir)
+	return nil
+
+}
+
+func (w *WAL) buildKeyDirFromLogFile(fi *os.File, fileName string) error {
+	for {
+		offset, err := fi.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return err
+		}
+
+		var header Header
+		if err := binary.Read(fi, binary.BigEndian, &header); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		key := make([]byte, header.KeyLen)
+		if _, err := io.ReadFull(fi, key); err != nil {
+			return err
+		}
+
+		if _, err := fi.Seek(int64(header.ValueLen), io.SeekCurrent); err != nil {
+			return err
+		}
+
+		w.keyDir[string(key)] = KeyDirEntry{
+			FileName:  fileName,
+			Offset:    offset,
+			ValueSize: header.ValueLen,
+		}
+	}
+
 	return nil
 }
