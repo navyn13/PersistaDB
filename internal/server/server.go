@@ -13,7 +13,7 @@ type Server struct {
 	addPeerCh chan *Peer
 	msgCh     chan Message
 	peers     map[*Peer]bool
-	wal       *WAL
+	storage   *Storage
 }
 
 func NewServer(cfg *config.Config) *Server {
@@ -22,7 +22,7 @@ func NewServer(cfg *config.Config) *Server {
 		addPeerCh: make(chan *Peer),
 		msgCh:     make(chan Message),
 		peers:     make(map[*Peer]bool),
-		wal:       NewWAL(),
+		storage:   NewStorage(),
 	}
 }
 
@@ -38,14 +38,8 @@ func (s *Server) Start() error {
 	//start peer loop
 	s.ln = ln
 	go s.Peerloop()
-	// read all log files before starting the server
-	if err := s.wal.BuildKeyDirMapFromLogFiles(); err != nil {
-		slog.Error("Failed to build key dir map from log files", "error", err)
-		return err
-	}
-	//create log file
-	if err := s.wal.CreateNextLogFile(); err != nil {
-		slog.Error("Failed to create next log file", "error", err)
+	if err := s.storage.Open(); err != nil {
+		slog.Error("Failed to open storage", "error", err)
 		return err
 	}
 
@@ -84,5 +78,8 @@ func (s *Server) handleClientConn(conn net.Conn, msgCh chan Message) {
 func (s *Server) Shutdown() {
 	if s.ln != nil {
 		s.ln.Close()
+	}
+	if s.storage != nil {
+		_ = s.storage.Close()
 	}
 }

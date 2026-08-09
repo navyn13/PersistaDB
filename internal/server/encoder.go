@@ -52,7 +52,7 @@ func (e *DeleteRecordEncoder) Encode() []byte {
 		CRC:       crc32.ChecksumIEEE([]byte(e.key)),
 		Timestamp: time.Now().UnixNano(),
 		KeyLen:    uint32(len(e.key)),
-		ValueLen:  ^uint32(0),
+		ValueLen:  tombstoneValueLen,
 	}
 
 	buf := new(bytes.Buffer)

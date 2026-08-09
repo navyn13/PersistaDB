@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 )
 
@@ -13,51 +14,51 @@ type WAL struct {
 	activeFile *os.File
 	nextFileID int
 	mu         sync.Mutex
-	keyDir     map[string]KeyDirEntry
 }
 
 const HEADER_SIZE = 20
+const tombstoneValueLen = ^uint32(0)
 
-type KeyDirEntry struct {
-	FileName  string
-	Offset    int64
-	ValueSize uint32
+type LogEntry struct {
+	FileName string
+	Offset   int64
+}
+
+type LogRecord struct {
+	Key      string
+	FileName string
+	Offset   int64
+	Deleted  bool
 }
 
 func NewWAL() *WAL {
-	w := &WAL{
-		keyDir: make(map[string]KeyDirEntry),
-	}
-	// Ensure data directory exists
-	if err := os.MkdirAll("logs", 0755); err != nil {
-		return nil
-	}
-	return w
+	return &WAL{}
 }
-func (w *WAL) BuildKeyDirMapFromLogFiles() error {
+
+func (w *WAL) Replay(apply func(LogRecord) error) error {
 	files, err := filepath.Glob(filepath.Join("logs", "*.data"))
 	if err != nil {
 		return err
 	}
+	sort.Strings(files)
+
 	for _, file := range files {
 		fi, err := os.Open(file)
 		if err != nil {
 			return err
 		}
-		fileN := fi.Name()
-		err = w.buildKeyDirFromLogFile(fi, fileN)
+
+		err = w.replayLogFile(fi, fi.Name(), apply)
 		fi.Close()
 		if err != nil {
 			return err
 		}
 	}
-	//print the whole map after reading the all the log files
-	fmt.Println(w.keyDir)
-	return nil
 
+	return nil
 }
 
-func (w *WAL) buildKeyDirFromLogFile(fi *os.File, fileName string) error {
+func (w *WAL) replayLogFile(fi *os.File, fileName string, apply func(LogRecord) error) error {
 	for {
 		offset, err := fi.Seek(0, io.SeekCurrent)
 		if err != nil {
@@ -77,14 +78,20 @@ func (w *WAL) buildKeyDirFromLogFile(fi *os.File, fileName string) error {
 			return err
 		}
 
-		if _, err := fi.Seek(int64(header.ValueLen), io.SeekCurrent); err != nil {
-			return err
+		deleted := header.ValueLen == tombstoneValueLen
+		if !deleted {
+			if _, err := fi.Seek(int64(header.ValueLen), io.SeekCurrent); err != nil {
+				return err
+			}
 		}
 
-		w.keyDir[string(key)] = KeyDirEntry{
-			FileName:  fileName,
-			Offset:    offset,
-			ValueSize: header.ValueLen,
+		if err := apply(LogRecord{
+			Key:      string(key),
+			FileName: fileName,
+			Offset:   offset,
+			Deleted:  deleted,
+		}); err != nil {
+			return err
 		}
 	}
 
@@ -93,10 +100,14 @@ func (w *WAL) buildKeyDirFromLogFile(fi *os.File, fileName string) error {
 
 // CreateDataFile creates the next sequential .data file.
 func (w *WAL) CreateNextLogFile() error {
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		return err
+	}
+
 	// Find next available segment number
 	files, err := filepath.Glob(filepath.Join("logs", "*.data"))
 	if err != nil {
-		return nil
+		return err
 	}
 
 	maxID := 0
@@ -130,25 +141,30 @@ func (w *WAL) CreateNextLogFile() error {
 
 	return nil
 }
-func (w *WAL) WriteRecord(data []byte) error {
+
+func (w *WAL) WriteRecord(data []byte) (LogEntry, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.activeFile == nil {
-		return fmt.Errorf("no active file")
+		return LogEntry{}, fmt.Errorf("no active file")
 	}
-	_, err := w.activeFile.Write(data)
+
+	offset, err := w.activeFile.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return err
+		return LogEntry{}, err
 	}
-	return nil
+
+	_, err = w.activeFile.Write(data)
+	if err != nil {
+		return LogEntry{}, err
+	}
+	return LogEntry{
+		FileName: w.activeFile.Name(),
+		Offset:   offset,
+	}, nil
 }
 
-func (w *WAL) ReadRecord(key string) (string, error) {
-	entry, ok := w.keyDir[key]
-	if !ok {
-		return "", fmt.Errorf("key not found")
-	}
-
+func (w *WAL) ReadValue(entry LogEntry) (string, error) {
 	fi, err := os.Open(entry.FileName)
 	if err != nil {
 		return "", err
@@ -178,4 +194,11 @@ func (w *WAL) ReadRecord(key string) (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func (w *WAL) Close() error {
+	if w.activeFile == nil {
+		return nil
+	}
+	return w.activeFile.Close()
 }

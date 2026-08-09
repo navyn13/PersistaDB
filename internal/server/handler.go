@@ -13,14 +13,8 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID SET COMMAND\r\n"))
 			return nil
 		}
-		encoder := &SetRecordEncoder{
-			key:   parts[1],
-			value: parts[2],
-		}
-		encoded := encoder.Encode()
-		err := s.wal.WriteRecord(encoded)
-		if err != nil {
-			msg.peer.Send([]byte("ERROR WRITING TO WAL\r\n"))
+		if err := s.storage.Set(parts[1], parts[2]); err != nil {
+			msg.peer.Send([]byte("ERROR WRITING VALUE\r\n"))
 			return err
 		}
 		msg.peer.Send([]byte("OK\r\n"))
@@ -31,9 +25,9 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID GET COMMAND\r\n"))
 			return nil
 		}
-		value, err := s.wal.ReadRecord(parts[1])
+		value, err := s.storage.Get(parts[1])
 		if err != nil {
-			msg.peer.Send([]byte("ERROR READING FROM WAL\r\n"))
+			msg.peer.Send([]byte("ERROR READING VALUE\r\n"))
 			return err
 		}
 		msg.peer.Send([]byte(value + "\r\n"))
@@ -44,13 +38,8 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID DELETE COMMAND\r\n"))
 			return nil
 		}
-		encoder := &DeleteRecordEncoder{
-			key: parts[1],
-		}
-		encoded := encoder.Encode()
-		err := s.wal.WriteRecord(encoded)
-		if err != nil {
-			msg.peer.Send([]byte("ERROR DELETING TO WAL\r\n"))
+		if err := s.storage.Delete(parts[1]); err != nil {
+			msg.peer.Send([]byte("ERROR DELETING VALUE\r\n"))
 			return err
 		}
 		msg.peer.Send([]byte("OK\r\n"))
