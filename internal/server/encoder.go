@@ -1,10 +1,19 @@
 package server
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"time"
 )
+
+type Header struct {
+	CRC       uint32
+	Timestamp int64
+	KeyLen    uint32
+	ValueLen  uint32
+}
 
 type RecordEncoder interface {
 	Encode() []byte
@@ -23,35 +32,31 @@ func CRCString(data string) string {
 }
 
 func (e *SetRecordEncoder) Encode() []byte {
-	crc := CRCString(e.key + e.value)
-	timestamp := time.Now().UnixNano()
-	keyLen := len(e.key)
-	valueLen := len(e.value)
+	header := Header{
+		CRC:       crc32.ChecksumIEEE([]byte(e.key + e.value)),
+		Timestamp: time.Now().UnixNano(),
+		KeyLen:    uint32(len(e.key)),
+		ValueLen:  uint32(len(e.value)),
+	}
 
-	record := fmt.Sprintf("%s%016x%08x%08x%s%s",
-		crc,
-		timestamp,
-		keyLen,
-		valueLen,
-		e.key,
-		e.value,
-	)
-	return []byte(record)
+	buf := new(bytes.Buffer)
+
+	binary.Write(buf, binary.BigEndian, header)
+	buf.WriteString(e.key)
+	buf.WriteString(e.value)
+
+	return buf.Bytes()
 }
 func (e *DeleteRecordEncoder) Encode() []byte {
-	crc := CRCString(e.key)
-	timestamp := time.Now().UnixNano()
-	keyLen := len(e.key)
-	valueLen := -1
-	value := ""
-	///valaue len must be -1 for delete
-	record := fmt.Sprintf("[%s][%016x][%016x][%d][%s][%s]",
-		crc,
-		timestamp,
-		keyLen,
-		valueLen,
-		e.key,
-		value,
-	)
-	return []byte(record)
+	header := Header{
+		CRC:       crc32.ChecksumIEEE([]byte(e.key)),
+		Timestamp: time.Now().UnixNano(),
+		KeyLen:    uint32(len(e.key)),
+		ValueLen:  ^uint32(0),
+	}
+
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, header)
+	buf.WriteString(e.key)
+	return buf.Bytes()
 }
