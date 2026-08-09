@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log/slog"
 	"strings"
 )
 
@@ -19,7 +18,7 @@ func (s *Server) handleMessage(msg Message) error {
 			value: parts[2],
 		}
 		encoded := encoder.Encode()
-		err := s.wal.Write(encoded)
+		err := s.wal.WriteRecord(encoded)
 		if err != nil {
 			msg.peer.Send([]byte("ERROR WRITING TO WAL\r\n"))
 			return err
@@ -32,7 +31,12 @@ func (s *Server) handleMessage(msg Message) error {
 			msg.peer.Send([]byte("INVALID GET COMMAND\r\n"))
 			return nil
 		}
-		slog.Info("Getting value", "key", parts[1])
+		value, err := s.wal.ReadRecord(parts[1])
+		if err != nil {
+			msg.peer.Send([]byte("ERROR READING FROM WAL\r\n"))
+			return err
+		}
+		msg.peer.Send([]byte(value + "\r\n"))
 		return nil
 
 	case "delete":
@@ -44,7 +48,7 @@ func (s *Server) handleMessage(msg Message) error {
 			key: parts[1],
 		}
 		encoded := encoder.Encode()
-		err := s.wal.Write(encoded)
+		err := s.wal.WriteRecord(encoded)
 		if err != nil {
 			msg.peer.Send([]byte("ERROR DELETING TO WAL\r\n"))
 			return err
